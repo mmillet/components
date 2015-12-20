@@ -13,7 +13,8 @@ git_clone () {
 git_update_repos () {
     repos=$1
     version=$2
-    node $ROOT/sync.js create-component.json $repos $version
+    folder=$3
+    node $ROOT/sync.js create-component.json $repos $version $folder
 
     #AU
     git config --global user.email "${GIT_EMAIL}"
@@ -22,7 +23,7 @@ git_update_repos () {
     echo "https://${GH_TOKEN}:@github.com" > .git/credential
 
     git add -A -f
-    git commit -m "based on https://github.com/fis-components/components/blob/master/modules/${repos}.js" -a
+    git commit -m "based on https://github.com/fis-components/components/blob/master/modules/${folder}${repos}.js" -a
 
     git push origin master
     git tag -a "$version" -m "create tag $version"
@@ -51,8 +52,9 @@ sync () {
     build_dest=$5
     tag=$6
     rebuild=$7
-    testing=$8
+    folder=$8
 
+    echo "Folder is $folder"
     dest="$ROOT/_$new"
 
     echo "=SYNC ${new} from ${repos}, version: ${version}"
@@ -66,7 +68,7 @@ sync () {
 
     if [ "$?" != "0" ]; then
         # new origin
-        node $ROOT/sync.js create-repos "${new}" "${GH_TOKEN}" "${repos}"
+        node $ROOT/sync.js create-repos "${new}" "${GH_TOKEN}" "${repos}" "$folder"
         if [ "$?" != "0" ]; then
             exit 1
         fi
@@ -126,6 +128,7 @@ sync () {
         # run build
         if [ "$build" != "" ]; then
             echo  '=BUILD '$new
+            touch package.json
             eval $build || ('=BUILD build fail.' 2>&1 || exit 1)
         fi
 
@@ -136,23 +139,31 @@ sync () {
         # if [ -d "./dist" ]; then
         #     cp -rf "./dist" "$dest"
         # fi
-
-        node $ROOT/sync.js move "$new" "$version" "$(pwd)" "$dest"
-
-        node $ROOT/sync.js convert "$new" "$version" "$dest"
-
-        if [ "$?" != "0" ]; then
-            echo '=ROADMAP move fail'
-            exit 1
+    else 
+        if [ "$build" != "" ]; then
+            mkdir -p $new
+            cd $new
+            touch package.json
+            echo  '=BUILD '$new
+            eval $build || ('=BUILD build fail.' 2>&1 || exit 1)
         fi
-
-        cd "$dest"
-        echo "=CD $dest"
-
-        git_update_repos $new $version
-
-        cd $ROOT
     fi
+
+    node $ROOT/sync.js move "$new" "$version" "$(pwd)" "$dest" "$folder"
+
+    node $ROOT/sync.js convert "$new" "$version" "$dest" "$folder"
+
+    if [ "$?" != "0" ]; then
+        echo '=ROADMAP move fail'
+        exit 1
+    fi
+
+    cd "$dest"
+    echo "=CD $dest"
+
+    git_update_repos $new $version $folder
+
+    cd $ROOT
 }
 
 export -f sync

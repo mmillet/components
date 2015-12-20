@@ -8,6 +8,9 @@ module.exports = (function() {
             name: 'redux-thunk',
             main: 'index.js',
             build: 'rm package.json && npm install --prefix . redux-thunk@1.0.0',
+            dependencies: [
+                "redux"
+            ],
             mapping: [
                 {
                     reg: /\bmin\b/i,
